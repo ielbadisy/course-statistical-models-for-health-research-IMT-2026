@@ -1,0 +1,160 @@
+---
+title: "Project: Treatment Effect Comparison of Immunotherapy in Melanoma"
+format: pdf
+---
+
+
+## Project: Unsupervised Discovery of Survival Phenotypes under Immunotherapy
+
+### 1. Clinical motivation
+
+Immunotherapy has transformed cancer treatment, but patients experience *heterogeneous benefit*:
+
+* some patients achieve long-term survival
+
+* others experience limited benefit
+
+Understanding this heterogeneity is essential for precision medicine and treatment stratification in order to improve clinical decision-making. 
+
+Rather than defining subgroups manually, you may use a *data-driven approach*.
+
+
+### 2. Statistical problem
+
+For each patient $i$, we observe:
+
+$$
+(T_i, \delta_i, X_i)
+$$
+
+where:
+
+* $T_i$: survival time
+
+* $\delta_i$: event indicator
+
+* $X_i$: clinical covariates
+
+Our goal is to estimate the individualized survival function:
+
+$$
+S_i(t) = P(T_i > t \mid X_i)
+$$
+
+and identify groups of patients with similar survival patterns.
+
+### 3. Project objective
+
+Identify *survival phenotypes* using:
+
+* deep survival prediction (survdnn: https://cran.r-project.org/web/packages/survdnn/index.html)
+
+* unsupervised clustering of survival curves (unsurv: https://github.com/ielbadisy/unsurv)
+
+* clinical interpretation using RMST
+
+These phenotypes represent distinct prognosis profiles.
+
+
+### 4. Methodological pipeline
+
+**Step 1: Deep survival modeling (survdnn)**
+
+Train a neural survival model:
+
+$$
+\hat S_i(t) = f_\theta(X_i)
+$$
+
+Output: predicted survival curves for all patients.
+
+## Step 2: Unsupervised clustering (unsurv)
+
+Cluster predicted survival curves:
+
+$$
+C_i = \text{cluster}(\hat S_i)
+$$
+
+This identifies $K$ survival phenotypes.
+
+
+## Step 3: Clinical interpretation
+
+Compare clusters using:
+
+* clinical characteristics
+
+* Kaplan–Meier curves
+
+* response variables
+
+This allows interpretation of phenotypes.
+
+## Step 4: Quantify survival benefit using RMST
+
+Restricted Mean Survival Time:
+
+$$
+RMST(\tau) =
+\int_0^\tau S(t) dt
+$$
+
+Interpretation:
+
+> Expected survival time up to horizon $\tau$
+
+Compare RMST across clusters.
+
+**Why deep survival models?**
+
+Classical Cox model:
+
+$$
+\log h(t \mid X) = \beta^T X
+$$
+
+assumes:
+
+* linear effects
+
+* proportional hazards
+
+Deep models learn:
+
+$$
+f_\theta(X)
+$$
+
+allowing nonlinear effects and complex interactions.
+
+### 4. Expected outputs
+
+You will produce:
+
+Model results
+
+* trained SurvDNN model
+* predicted survival curves
+
+Clustering results
+
+* cluster assignments
+* cluster survival curves
+
+Clinical interpretation
+
+* Table 1 by cluster
+* KM curves
+* RMST comparison
+
+
+### 5. Scientific questions
+
+
+- Do distinct survival phenotypes exist?
+
+- - Which cluster has best prognosis?
+
+Which clinical variables explain differences?
+

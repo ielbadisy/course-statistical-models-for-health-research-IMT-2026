@@ -1,0 +1,623 @@
+---
+title: "Generalized Linear Models"
+subtitle: "Applications"
+format: pdf
+---
+
+## Generalized linear models (GLMs)
+
+Generalized Linear Models provide a unified framework for modeling outcomes from the various family of distributions, including:
+
+- Continuous outcomes (Gaussian → linear regression)
+
+- Binary outcomes (Binomial → logistic regression)
+
+- Count outcomes (Poisson → rate models)
+
+
+### Core idea
+
+All GLMs share the same structure:
+
+$$
+g(\mu_i) = X_i^\top \beta
+$$
+
+Where:
+
+* $Y_i$ follows a distribution from the **exponential family**
+
+* $\mu_i = E(Y_i \mid X_i)$
+
+* $g(\cdot)$ is a **link function**
+
+* $X_i^\top \beta$ is the linear predictor
+
+
+### Three components of a GLM
+
+1. **Random component**
+
+Distribution of $Y$ (Normal, Binomial, Poisson)
+
+2. **Systematic component**
+
+Linear predictor $X^\top \beta$
+
+3. **Link function**
+
+Connects mean outcome to predictors
+
+* Identity → Linear regression
+
+* Logit → Logistic regression
+
+* Log → Poisson regression
+
+
+### Why GLMs matter in health research
+
+They allow us to model:
+
+* Mean differences (QALY)
+* Odds ratios (disease risk)
+* Incidence rate ratios (person-time data)
+
+Within one unified framework.
+
+
+| Outcome Type | Distribution | Link     | Interpretation  |
+| ------------ | ------------ | -------- | --------------- |
+| Continuous   | Gaussian     | Identity | Mean difference |
+| Binary       | Binomial     | Logit    | Odds ratio      |
+| Count        | Poisson      | Log      | Rate ratio      |
+
+
+
+## Linear regression: Ketamine for Chronic Pain (QALY)
+
+## Clinical Question
+
+Does ketamine dosage and patient characteristics influence **Quality-Adjusted Life Years (QALY)**?
+
+We model the expected outcome:
+
+$$
+E(Y \mid X)
+$$
+
+Where:
+
+* $(Y = QALY)$
+* $(X =)$ treatment characteristics + patient covariates
+
+
+## Model specification
+
+Linear regression assumes:
+
+$$
+Y_i = \beta_0 + \beta_1 X_{i1} + \cdots + \beta_p X_{ip} + \varepsilon_i
+$$
+
+with:
+
+$$
+\varepsilon_i \sim \mathcal{N}(0, \sigma^2)
+$$
+
+Thus:
+
+$$
+E(Y_i \mid X_i) = X_i^\top \beta
+$$
+
+$$
+Var(Y_i \mid X_i) = \sigma^2
+$$
+
+## Interpretation of coefficients
+
+For a continuous predictor (X_j):
+
+$$
+\beta_j = \frac{\partial E(Y)}{\partial X_j}
+$$
+
+* Expected change in QALY for a 1-unit increase in $X_j$, holding other variables constant.
+
+For categorical predictors:
+
+$$
+\beta_j = \text{Difference in mean QALY vs reference group}
+$$
+
+
+## Estimation principle
+
+Parameters are estimated via **Ordinary Least Squares (OLS)**:
+
+$$
+\hat{\beta} = (X^\top X)^{-1} X^\top Y
+$$
+
+OLS minimizes:
+
+$$
+\sum_{i=1}^{n}(Y_i - \hat{Y}_i)^2
+$$
+
+
+## Assumptions
+
+* Linearity
+
+* Independence
+
+* Homoscedasticity
+
+* Normal residuals
+
+* No strong multicollinearity
+
+
+
+## Questions
+
+1. Load and inspect the `ketapain.csv` Dataset.
+
+```{r}
+keta <- read.csv("datasets/ketapain.csv")
+
+head(keta)
+str(keta)
+```
+
+
+Before modeling, check:
+
+* Is `qaly` continuous?
+
+* Any missing values?
+
+* Correct variable types?
+
+
+2. Perform some basic cleaning.
+
+```{r}
+
+
+```
+
+* Why convert to factors?
+
+Because categorical variables must be treated as group comparisons, not numeric scales.
+
+3. Fit the linear regression. 
+
+We estimate:
+
+$$
+E(\text{QALY}\mid X)=\beta_0+\beta_1\text{Age}+\beta_2\text{Sex}+\beta_3\text{Average Dose}+\cdots
+$$
+
+
+
+```{r}
+
+```
+
+
+4. Interpret key coefficients
+
+```{r}
+
+```
+
+
+5. Check model assumptions
+
+Residuals:
+
+$$
+\hat{\varepsilon}_i = Y_i - \hat{Y}_i
+$$
+
+We check:
+
+* Residual vs fitted → Linearity and homoscedasticity
+
+* QQ-plot → Normality
+
+* Influence diagnostics
+
+```{r}
+
+```
+
+
+
+Interpretation of diagnostics
+
+* Funnel shape → heteroscedasticity
+
+* Systematic curve → non-linearity
+
+* Heavy tails in QQ → non-normal residuals
+
+* Extreme leverage → influential observations
+
+
+6. Predict QALY for a new patient
+
+
+Theoretical prediction:
+
+$$
+\hat{Y}_{new} = x_{new}^\top \hat{\beta}
+$$
+
+
+
+Prediction interval:
+
+$$
+\hat{Y}*{new} \pm t*{n-p}
+\sqrt{\widehat{\sigma}^2 (1 + x_{new}^\top (X^\top X)^{-1} x_{new})}
+$$
+
+Difference:
+
+* Confidence interval → mean response
+* Prediction interval → individual patient
+
+- Helper functionfor predicting qaly: 
+
+```{r}
+predict_qaly <- function(age, sexe, av_dose, level_dose,
+                         cum_dose, cum_days, perfusion, mode) {
+
+  newdata <- data.frame(
+    age = age,
+    sexe = factor(sexe, levels = levels(keta$sexe)),
+    av_dose = av_dose,
+    level_dose = factor(level_dose, levels = levels(keta$level_dose)),
+    cum_dose = cum_dose,
+    cum_days = cum_days,
+    perfusion = perfusion,
+    mode = factor(mode, levels = levels(keta$mode))
+  )
+
+  predict(fit_lm, newdata = newdata, interval = "prediction")
+}
+```
+
+
+```{r}
+
+```
+
+
+
+
+## Logistic regression: Arthritis risk factors (`arthritis`)
+
+### Clinical Question
+
+Which patient factors are associated with **arthritis** in a cohort dataset?
+
+Outcome (binary):
+
+$$
+Y =
+\begin{cases}
+1 & \text{arthritis present} \\
+0 & \text{arthritis absent}
+\end{cases}
+$$
+
+
+We want to model the **risk**:
+
+$$
+P(Y=1 \mid X)
+$$
+
+with covariates  age, gender, BMI, diabetes, smoking.
+
+## Why Logistic Regression?
+
+A linear model can predict values outside ([0,1]). Logistic regression ensures predicted risks are valid probabilities by using a **link function**:
+
+$$
+\text{logit}(p)=\log\left(\frac{p}{1-p}\right)
+$$
+
+with:
+
+$$
+p_i = P(Y_i=1\mid X_i)
+$$
+
+
+## 2Model Specification
+
+$$
+\log\left(\frac{P(Y_i=1\mid X_i)}{1-P(Y_i=1\mid X_i)}\right)
+=
+\beta_0 + \beta_1 X_{i1} + \cdots + \beta_p X_{ip}
+$$
+
+Equivalently, the predicted probability is:
+
+$$
+p_i = \frac{1}{1+\exp(-X_i^\top\beta)}
+$$
+
+
+## Interpretation of coefficients
+
+Coefficients are in **log-odds**:
+
+$$
+\beta_j = \text{change in log-odds per 1-unit increase in } X_j
+$$
+
+Exponentiating gives the **Odds Ratio (OR)**:
+
+$$
+OR_j = e^{\beta_j}
+$$
+
+Interpretation:
+
+* (OR>1): increases odds (higher risk)
+
+* (OR<1): decreases odds (protective association)
+
+* (OR=1): no association
+
+For categorical predictors, ORs are relative to the **reference category**.
+
+## Estimation principle
+
+Parameters are estimated by **Maximum Likelihood Estimation (MLE)**.
+
+Likelihood:
+
+$$
+L(\beta)=\prod_{i=1}^{n} p_i^{y_i}(1-p_i)^{1-y_i}
+$$
+
+We typically use the log-likelihood and optimize numerically.
+
+
+## Inference
+
+We test:
+
+$$
+H_0:\beta_j=0
+$$
+
+using Wald tests (z-statistics) or likelihood-based tests. 
+
+Confidence intervals for ORs are:
+
+$$
+\exp(\hat\beta_j \pm 1.96\cdot SE(\hat\beta_j))
+$$
+
+## Marginal Effects (Clinical interpretation)
+
+Because ORs can be hard to interpret clinically, marginal effects translate to **probability changes**:
+
+$$
+\frac{\partial p}{\partial x_j} = \beta_j,p(1-p)
+$$
+
+So the probability impact depends on baseline risk $p$. That’s why we often compute **average marginal effects**.
+
+
+1. Load and inspect the dataset.
+
+```{r}
+arthritis <- read.csv("datasets/arthritis.csv")
+
+head(arthritis)
+str(arthritis)
+```
+
+
+2. Prepare the data.
+
+Convert categorical variables to factors, and set the reference outcome category.
+
+```{r}
+
+```
+
+Why reference matters?
+
+* It determines which group is the baseline for interpretation.
+
+* Here we model the odds of **status = "Yes"** relative to **"No"** (depending on coding; see note below).
+
+
+3. Fit a logistic regression model.
+
+Predictors:
+
+* age
+* gender
+* bmi
+* diabetes
+* smoke
+
+```{r}
+
+```
+
+
+
+4. Compute Odds Ratios (OR)
+
+$$
+OR = e^{\beta}
+$$
+
+```{r}
+
+```
+
+
+5. Which variables increase the odds of arthritis?
+
+Rule:
+
+* OR > 1 increases odds
+
+* OR < 1 decreases odds
+
+```{r}
+
+```
+
+
+6. Compute 95% confidence intervals (OR scale).
+
+```{r}
+
+```
+
+
+* If the CI includes 1 → evidence of association is weak (at 5% level)
+
+* If CI entirely > 1 → increased odds
+
+* If CI entirely < 1 → decreased odds
+
+
+7. Compute predicted probability of arthritis.
+
+Predicted risk:
+
+$$
+\hat{p}_i = P(Y_i=1\mid X_i)
+$$
+
+
+```{r}
+
+```
+
+
+8. Visualize predicted probability vs age. 
+
+```{r, eval=FALSE}
+library(ggplot2)
+
+ggplot(arthritis, aes(age, pred_prob, color = gender)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "loess") +
+  labs(
+    title = "Predicted probability of arthritis by age",
+    x = "Age",
+    y = "Predicted probability"
+  ) +
+  theme_minimal()
+```
+
+Teaching note:
+
+* This is not a causal curve; it’s model-based prediction given observed covariates.
+
+* LOESS here is just for visualization, not the fitted logistic mean function.
+
+
+9. Interpretation Questions (From ORs)
+
+* Does age increase risk? (OR_age > 1?)
+* Does BMI increase risk?
+* Does smoking increase risk?
+* Does gender affect risk?
+
+
+10. Marginal effects of BMI and Age.
+
+Coefficients are in log-odds so marginal effects express average probability change.
+
+```{r}
+
+```
+
+
+- Marginal effects for BMI and age only
+
+```{r}
+
+```
+
+Interpretation:
+
+* positive effect → increases predicted risk (on average)
+
+* negative effect → decreases predicted risk
+
+
+11. Predicting risk for new patients.
+
+We now predict arthritis risk for specific individuals.
+
+- Helper function
+
+```{r}
+predict_risk <- function(age,
+                         bmi,
+                         gender = "Female",
+                         diabetes = "No",
+                         smoke = "No") {
+
+  newdata <- data.frame(
+    age = age,
+    bmi = bmi,
+    gender = factor(gender, levels = levels(arthritis$gender)),
+    diabetes = factor(diabetes, levels = levels(arthritis$diabetes)),
+    smoke = factor(smoke, levels = levels(arthritis$smoke))
+  )
+
+  predict(
+    fit,
+    newdata = newdata,
+    type = "response"
+  )
+}
+```
+
+
+
+- Example: low-risk vs high-risk profiles
+
+Low-risk:
+
+* Female, Age 30, BMI 22, non-smoker, no diabetes
+
+High-risk:
+
+* Male, Age 70, BMI 35, smoker, diabetic
+
+```{r}
+new_patients <- data.frame(
+  age = c(30, 70),
+  bmi = c(22, 35),
+  gender = factor(c("Female","Male"),
+                  levels = levels(arthritis$gender)),
+  diabetes = factor(c("No", "Yes"),
+                    levels = levels(arthritis$diabetes)),
+  smoke = factor(c("No", "Yes"),
+                 levels = levels(arthritis$smoke))
+)
+
+predict(fit, newdata = new_patients, type = "response")
+```
