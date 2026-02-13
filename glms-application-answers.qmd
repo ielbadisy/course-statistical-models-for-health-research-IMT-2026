@@ -183,7 +183,7 @@ keta <- keta |>
     mode = factor(mode)
   )
 
-k
+
 ```
 
 -   Why convert to factors?
@@ -290,19 +290,18 @@ predict_qaly <- function(age, sexe, av_dose, level_dose,
 }
 ```
 
-```{r}
-#| echo: false
+{r}
+#\| echo: false
 predict_qaly(
-  age = 50,
-  sexe = "female",
-  av_dose = 0.7,
-  level_dose = "low dose",
-  cum_dose = 269.5,
-  cum_days = 5,
-  perfusion = 24,
-  mode = "continu"
+age = 50,
+sexe = "female",
+av_dose = 0.7,
+level_dose = "low dose",
+cum_dose = 269.5,
+cum_days = 5,
+perfusion = 24,
+mode = "continu"
 )
-```
 
 ## Logistic regression: Arthritis risk factors (`arthritis`)
 
