@@ -1,0 +1,410 @@
+---
+title: "Survival models"
+subtitle: "Part 1"
+format: pdf
+---
+
+
+## Clinical question
+
+For patients in the **veteran** lung cancer trial, we want to describe and compare **time-to-death** between treatment arms, and quantify associations with prognostic factors.
+
+Survival data are characterized by:
+
+* a time variable $T$ (follow-up time)
+
+* an event indicator $\delta$ (1 = event occurred, 0 = censored)
+
+We analyze:
+
+$$
+{(T_i,\delta_i,X_i)}_{i=1}^n
+$$
+
+
+
+## Key Quantities
+
+**Survival function**
+
+$$
+S(t) = P(T>t)
+$$
+
+**Hazard function**
+
+$$
+h(t)=\lim_{\Delta t\to 0}\frac{P(t\le T < t+\Delta t \mid T\ge t)}{\Delta t}
+$$
+
+Relationship:
+
+$$
+S(t)=\exp\left(-\int_0^t h(u),du\right)
+$$
+
+
+
+## Kaplan–Meier (KM) estimator
+
+Nonparametric estimator of $S(t)$:
+
+$$
+\hat S(t) = \prod_{t_j \le t}\left(1-\frac{d_j}{n_j}\right)
+$$
+
+where $d_j$ = events at time $t_j$, $n_j$ = at risk just before $t_j$.
+
+KM gives *absolute survival probabilities* over time.
+
+
+## Log-rank Test (Group Comparison)
+
+Tests:
+
+$$
+H_0: S_1(t)=S_2(t)\ \ \forall t
+$$
+
+It compares observed vs expected events under $H_0$ across time points (most powerful when hazards are proportional).
+
+
+## Cox Proportional Hazards model
+
+Models the hazard:
+
+$$
+h(t\mid X)=h_0(t)\exp(\beta^\top X)
+$$
+
+Key interpretation:
+
+$$
+HR_j = e^{\beta_j}
+$$
+
+= multiplicative change in hazard for a 1-unit increase in $X_j$, holding others fixed.
+
+
+## Proportional Hazards (PH) Assumption
+
+Cox assumes *hazard ratios are constant over time*:
+
+$$
+\frac{h(t\mid X_1)}{h(t\mid X_2)}=\exp(\beta^\top (X_1-X_2)) \ \text{does not depend on } t
+$$
+
+Checked using **Schoenfeld residuals** (e.g., `cox.zph`).
+
+
+## Parametric Models (Royston–Parmar) as an alternative to Cox PH
+
+Cox is great for **HRs**, but clinical decisions often need **absolute risk**:
+
+* (P(T \le t)) at a horizon (e.g., 180 days)
+* RMST up to (\tau)
+
+Flexible parametric models (e.g., spline-based) can produce smooth survival predictions for absolute measures.
+
+
+## RMST (Restricted Mean Survival Time)
+
+$$
+RMST(\tau)=\int_0^\tau S(t),dt
+$$
+
+
+
+It’s the **average survival time** up to horizon $\tau$.
+
+
+Treatment effect:
+$$
+\Delta RMST(\tau)=RMST_{Test}(\tau)-RMST_{Standard}(\tau)
+$$
+
+Often easier to interpret clinically than HR.
+
+
+
+## Questions 
+
+1. Load packages, inspect data.
+
+```{r}
+#| echo: false
+library(survival)
+library(survminer)
+library(dplyr)
+library(ggplot2)
+library(rstpm2)
+
+data(veteran)
+
+head(veteran)
+str(veteran)
+
+# Teaching note:
+# In survival::veteran, status is already coded as 1=censored, 2=dead in some versions.
+# Many workflows require 0/1 with 1=event, so always confirm coding with table(status).
+table(veteran$status)
+```
+
+
+2. Estimate and plot the overall Kaplan–Meier curve.
+
+```{r}
+#| echo: false
+fit_km <- survfit(Surv(time, status) ~ 1, data = veteran)
+
+ggsurvplot(
+  fit_km,
+  conf.int = TRUE,
+  risk.table = TRUE,
+  title = "Overall survival (Veteran)"
+)
+```
+
+Interpretation prompts:
+
+* Median survival time?
+* Shape: steep early drop vs gradual decline?
+
+
+3. Plot KM curves by treatment and compare visually.
+
+```{r}
+#| echo: false
+fit_trt <- survfit(Surv(time, status) ~ trt, data = veteran)
+
+ggsurvplot(
+  fit_trt,
+  conf.int = TRUE,
+  pval = TRUE,
+  risk.table = TRUE,
+  legend.labs = c("Standard", "Test"),
+  title = "Survival by treatment"
+)
+```
+
+Ask students:
+
+* Do curves separate early or late?
+* Do they cross (possible PH concerns)?
+
+3. Log-rank test.
+
+Test:
+
+$$
+H_0:S_1(t)=S_2(t)
+$$
+
+```{r}
+#| echo: false
+survdiff(Surv(time, status) ~ trt, data = veteran)
+```
+
+Interpretation:
+
+* Small p-value → evidence survival differs between groups.
+
+
+4. Cox model (multivariable)
+
+$$
+h(t\mid X)=h_0(t)\exp(\beta^\top X)
+$$
+
+```{r}
+#| echo: false
+cox_multi <- coxph(Surv(time, status) ~ trt + age + karno + celltype, data = veteran)
+summary(cox_multi)
+
+# HRs and 95% CI
+exp(coef(cox_multi))
+exp(confint(cox_multi))
+```
+
+Interpretation prompts:
+
+* HR(trt): benefit if HR < 1
+
+* karno: expected protective if HR < 1 per higher score
+
+
+5. Check proportional hazards (PH)
+
+Schoenfeld residual test:
+
+* global test
+
+* variable-specific tests
+
+* plots vs time (trend suggests PH violation)
+
+```{r}
+#| echo: false
+ph_test <- cox.zph(cox_multi)
+ph_test
+plot(ph_test)
+```
+
+
+7. Fit RP (Royston–Parmar)model and compute 180-day absolute risk
+
+Idea: estimate $S(t\mid X)$ smoothly, then compute:
+
+$$
+Risk(t)=1-S(t)
+$$
+
+```{r}
+#| echo: false
+rp_model <- stpm2(
+  Surv(time, status) ~ trt + age + karno + celltype,
+  data = veteran, df = 4
+)
+
+summary(rp_model)
+
+# Patient profile
+newdata <- data.frame(
+  trt = 1,
+  age = 60,
+  karno = 70,
+  celltype = "adeno"
+)
+
+t_star <- 180
+newdata_180 <- transform(newdata, time = t_star)
+
+S_180 <- as.numeric(predict(rp_model, type = "surv", newdata = newdata_180))
+risk_180 <- 1 - S_180
+risk_180
+```
+
+
+8. Build predicted survival matrix $S(t)$
+
+```{r}
+t <- seq(1, max(veteran$time), by = 1)
+
+nd_std  <- transform(newdata, trt = 1, time = t)
+nd_test <- transform(newdata, trt = 2, time = t)
+
+S_std  <- as.numeric(predict(rp_model, type = "surv", newdata = nd_std))
+S_test <- as.numeric(predict(rp_model, type = "surv", newdata = nd_test))
+
+S <- cbind(Standard = S_std, Test = S_test)
+```
+
+
+9. RMST helpers
+
+$$
+RMST(\tau)=\int_0^\tau S(t),dt
+$$
+
+```{r}
+rmst_from_survmat <- function(t, S, tau) {
+  stopifnot(is.numeric(t), is.matrix(S), length(t) == nrow(S))
+  ord <- order(t)
+  t <- t[ord]
+  S <- S[ord, , drop = FALSE]
+
+  keep <- t <= tau
+  t0 <- t[keep]
+  S0 <- S[keep, , drop = FALSE]
+
+  if (length(t0) == 0) return(rep(tau, ncol(S)))
+
+  if (max(t0) < tau) {
+    t0 <- c(t0, tau)
+    S0 <- rbind(S0, S0[nrow(S0), , drop = FALSE])
+  }
+
+  dt <- diff(t0)
+  S_left  <- S0[-nrow(S0), , drop = FALSE]
+  S_right <- S0[-1, , drop = FALSE]
+  colSums((S_left + S_right) / 2 * dt)
+}
+
+rmst_curve_from_survmat <- function(t, S) {
+  stopifnot(is.numeric(t), is.matrix(S), length(t) == nrow(S))
+  ord <- order(t)
+  t <- t[ord]
+  S <- S[ord, , drop = FALSE]
+
+  dt <- diff(t)
+  S_left  <- S[-nrow(S), , drop = FALSE]
+  S_right <- S[-1, , drop = FALSE]
+
+  incr <- (S_left + S_right) / 2 * dt
+  rmst <- apply(incr, 2, cumsum)
+
+  out <- data.frame(tau = t[-1], rmst)
+  names(out)[-1] <- colnames(S)
+  out
+}
+```
+
+
+10. RMST at $\tau = 180$ days
+
+```{r}
+#| echo: false
+tau <- 180
+
+rmst_tau <- rmst_from_survmat(t, S, tau)
+rmst_tau
+
+delta_rmst_180 <- rmst_tau["Test"] - rmst_tau["Standard"]
+delta_rmst_180
+```
+
+
+11. $RMST(\tau)$ curves and $\Delta RMST(\tau)$
+
+```{r}
+library(tidyr)
+library(ggplot2)
+
+rmst_curve <- rmst_curve_from_survmat(t, S)
+
+rmst_long <- rmst_curve |>
+  pivot_longer(-tau, names_to = "arm", values_to = "rmst")
+
+ggplot(rmst_long, aes(tau, rmst, color = arm)) +
+  geom_line(linewidth = 1.1) +
+  labs(
+    title = "Model-based RMST(τ) curves (RP predicted survival)",
+    x = "τ (days)",
+    y = "RMST(τ)"
+  ) +
+  theme_minimal()
+
+rmst_delta <- rmst_curve |>
+  mutate(delta = Test - Standard)
+
+ggplot(rmst_delta, aes(tau, delta)) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_line(linewidth = 1.1) +
+  labs(
+    title = "ΔRMST(τ) = RMST_Test(τ) − RMST_Standard(τ)",
+    x = "τ (days)",
+    y = "ΔRMST(τ)"
+  ) +
+  theme_minimal()
+```
+
+
+12. Final clinical questions: 
+
+- Does treatment improve survival (KM / log-rank / Cox HR)?
+
+- Any PH violation (`cox.zph`)?
+
+- Which is clearer clinically: HR (Cox) or absolute risk at 180 days (RP)?
+
+- From $\Delta RMST(\tau)$, for which horizons does treatment provide meaningful gain?
