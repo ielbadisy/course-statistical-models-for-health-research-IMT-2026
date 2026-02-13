@@ -136,6 +136,8 @@ library(dplyr)
 library(ggplot2)
 library(rstpm2)
 
+pacman::p_load(survival, survminer, dplyr, ggplot2, rstpm2)
+
 data(veteran)
 
 head(veteran)
@@ -250,7 +252,7 @@ plot(ph_test)
 ```
 
 
-7. Fit RP (Royston–Parmar)model and compute 180-day absolute risk
+7. Fit RP (Royston–Parmar) model and compute 180-day absolute risk
 
 Idea: estimate $S(t\mid X)$ smoothly, then compute:
 
@@ -296,6 +298,8 @@ S_std  <- as.numeric(predict(rp_model, type = "surv", newdata = nd_std))
 S_test <- as.numeric(predict(rp_model, type = "surv", newdata = nd_test))
 
 S <- cbind(Standard = S_std, Test = S_test)
+
+S
 ```
 
 
