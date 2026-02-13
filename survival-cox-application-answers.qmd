@@ -43,8 +43,6 @@ $$
 S(t)=\exp\left(-\int_0^t h(u),du\right)
 $$
 
-
-
 ## Kaplan–Meier (KM) estimator
 
 Nonparametric estimator of $S(t)$:
@@ -84,7 +82,6 @@ HR_j = e^{\beta_j}
 $$
 
 = multiplicative change in hazard for a 1-unit increase in $X_j$, holding others fixed.
-
 
 ## Proportional Hazards (PH) Assumption
 
@@ -157,6 +154,8 @@ table(veteran$status)
 #| echo: false
 fit_km <- survfit(Surv(time, status) ~ 1, data = veteran)
 
+
+Surv(veteran$time, veteran$status)
 ggsurvplot(
   fit_km,
   conf.int = TRUE,
