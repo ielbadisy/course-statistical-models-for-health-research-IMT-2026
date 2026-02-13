@@ -25,7 +25,3 @@ Focus:
 * `project-treatment-comparison-melanoma.qmd`: Applied course project
 
 * `datasets/`: Course datasets
-
-
-
- r
